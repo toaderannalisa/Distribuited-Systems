@@ -2,7 +2,7 @@
 log:
   level: INFO
 
-accessLog: 
+accessLog:
   filePath: "/var/log/traefik/access.log" # Path to access log file
   format: common
 
@@ -15,9 +15,9 @@ api:
 entryPoints:
   web:
     address: ":80"
-  
-  # Enables HTTPS 
-  # websecure:
+
+    # Enables HTTPS
+    # websecure:
     # address: ":443"
 
 
