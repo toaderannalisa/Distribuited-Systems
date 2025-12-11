@@ -31,8 +31,9 @@ const UserManagement: React.FC = () => {
         try {
             setLoading(true);
             setError('');
-            const data = await api.getPeople(); //
-            setUsers(data);
+            const data = await api.getPeople(); 
+            console.log('getPeople response:', data, 'Type:', typeof data, 'IsArray:', Array.isArray(data));
+            setUsers(Array.isArray(data) ? data : []);
         } catch (err: any) {
             console.error('Failed to fetch users:', err);
             setError(err.response?.data?.message || 'Failed to fetch users');

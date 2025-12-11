@@ -1,92 +1,205 @@
-# Energy Management System 
+# Smart Energy Management System
 
-This is an **Energy Management System** that permits authenticated users to access, monitor, and manage smart energy metering devices. The system is constructed as a set of loosely coupled, containerized microservices, each deployed independently, and orchestrated through a reverse proxy and API gateway.
+Platformă microservicii distribuită pentru monitorizarea în timp real a consumului energetic, gestionarea utilizatorilor și dispozitivelor IoT.
 
-* **Architecture:** Microservices (Person and Device).
-* **API Gateway:** Traefik acts as a smart reverse proxy for unified external access.
-* **Authentication:** HTTP Basic Authentication is used for stateless API access.
-* **Authorization:** Role-Based Access Control (RBAC) enforced using Spring Security (ADMIN and CLIENT roles).
-* **Deployment:** Full containerization via Docker and Docker Compose.
-* **Data Isolation:** Two separate MySQL databases ensure strict data isolation between domains.
-* **API Documentation:** Two separate Swagger (OpenAPI 3) interfaces are exposed for clarity.
 
-## Project structure
-This repository contains the following primary services orchestrated by `docker-compose.yml`:
 
-| Service Name | Internal Port | Technology | Primary Function |
-| :--- | :--- | :--- | :--- |
-| **reverse-proxy** | 80/8080 | Traefik v3 | Routing and Load Balancing. |
-| **frontend** | 80 | React / Nginx | Web Client UI. |
-| **person-backend** | 8081 | Spring Boot 4 / Java 21 | User Management (CRUD) and Authentication logic. |
-| **device-backend** | 8082 | Spring Boot 4 / Java 21 | Device Management (CRUD) and allocation logic. |
-| **person-db** | 3306 | MySQL 8.0 | Stores user and role data. |
-| **device-db** | 3306 | MySQL 8.0 | Stores device and consumption data. |
+## Arhitectura
 
-## Prerequisites
-- **Docker** Engine
-- **Docker Compose**
+Sistemul este compus din 3 microservicii backend independente, un frontend React, și infrastructură de messaging și persistență:
 
-## Database (MySQL) — (Dockerized)
-The application uses two separate, isolated MySQL instances. Connection settings are managed via Environment Variables in `docker-compose.yml`.
+### Componente Principale
 
-> **Note:** The `ddl-auto=update` setting ensures tables are created/updated automatically on first run.
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         Frontend (React)                         │
+│                    http://localhost:80 (Nginx)                   │
+└────────────┬────────────────────────────────────────────────────┘
+             │
+             ├─────────────────────────────────────────────────────┐
+             │                                                     │
+             ▼                                                     ▼
+┌────────────────────────┐                          ┌────────────────────────┐
+│   Person Backend       │                          │   Device Backend       │
+│   Port: 8081           │                          │   Port: 8082           │
+│   DB: person_db (3307) │                          │   DB: device_db (3309) │
+└───────┬────────────────┘                          └────────┬───────────────┘
+        │                                                    │
+        │  RabbitMQ (sync.queue)                            │
+        │  ┌─────────────────────────────────────────────┐  │
+        └──►     Message Broker (Port: 5672/15672)      ◄──┘
+           └───────────────┬─────────────────────────────┘
+                          │
+                          │ (sync.queue + energy.data.queue)
+                          │
+                          ▼
+              ┌────────────────────────────┐
+              │  Monitoring Backend        │
+              │  Port: 8083                │
+              │  DB: monitoring_db (3310)  │
+              │  WebSocket: /ws-energy     │
+              └────────────────────────────┘
+```
 
-## Configuration
-All application settings are externalized:
+### Flux de Date
 
-| Purpose | Property | Source | Default Value (for containers) |
-|---|---|---|---|
-| DB host | `SPRING_DATASOURCE_URL` | `docker-compose.yml` | `jdbc:mysql://[service-name]:3306/[db-name]` |
-| DB user | `SPRING_DATASOURCE_USER` | `docker-compose.yml` | `root` |
-| HTTP port | `SERVER_PORT` | `docker-compose.yml` | `8081` (Person), `8082` (Device) |
+1. **Autentificare & Gestionare Utilizatori**
+   - Frontend → Person Backend (`/auth/login`, `/api/persons/`)
+   - Person Backend → RabbitMQ (`sync.queue`) → Monitoring Backend (sync users)
 
-## How to run (local)
-From the project root (where `docker-compose.yml` is located), follow these steps:
+2. **Gestionare Dispozitive**
+   - Frontend → Device Backend (`/api/devices/`)
+   - Device Backend → RabbitMQ (`sync.queue`) → Monitoring Backend (sync devices)
 
-1.  **Build and Run the System:**
-    ```bash
-    docker-compose up -d --build
-    ```
-    *(The `--build` flag ensures your latest Java code is compiled into the images.)*
+3. **Monitorizare Energie**
+   - Dispozitiv IoT → RabbitMQ (`energy.data.queue`) → Monitoring Backend
+   - Monitoring Backend → Database (energy_measurements)
+   - Frontend → Monitoring Backend (`/api/energy/measurements/{id}/hourly`) → Chart Display
+   - Monitoring Backend → WebSocket → Frontend (real-time updates)
 
-2.  **Access Logs (Troubleshooting):**
-    ```bash
-    docker-compose logs -f person-backend
-    ```
+## Tehnologii Utilizate
 
-3.  **Stop Services:**
-    ```bash
-    docker-compose down
-    ```
+### Backend
+- **Java 21** - Limbaj de programare
+- **Spring Boot 3.4.0** - Framework pentru microservicii
+  - Spring Web
+  - Spring Data JPA
+  - Spring AMQP (RabbitMQ)
+  - Spring WebSocket
+- **MySQL 8.0** - Baze de date relaționale (3 instanțe separate)
+- **RabbitMQ 3.13** - Message broker pentru comunicare asincronă
+- **Maven** - Build tool
 
-## API quick peek
-All API endpoints are accessed externally via the Traefik proxy on the base path `/api/`.
+### Frontend
+- **React 18** - UI framework
+- **TypeScript** - Limbaj tipizat
+- **Material-UI** - Componente UI
+- **Recharts** - Vizualizare date (charts)
+- **Nginx** - Web server și reverse proxy
 
-| Method | Resource | Service | Description | Required Role |
-| :--- | :--- | :--- | :--- | :--- |
-| `GET` | `/api/auth/me` | Person | Retrieves the currently authenticated user's details. | Authenticated |
-| `POST` | `/api/auth/register` | Person | Creates a new user in the system. | ADMIN (Enforced by Logic) |
-| `GET` | `/api/people` | Person | Lists all user accounts. | ADMIN |
-| `DELETE` | `/api/people/{id}` | Person | Deletes a user by ID. | ADMIN |
-| `POST` | **`/api/devices`** | Device | **Creates a new device resource.** | ADMIN |
-| `GET` | **`/api/devices`** | Device | **Lists all devices** (ADMIN only). | ADMIN |
-| `GET` | **`/api/devices/{id}`** | Device | **Fetches a single device by ID.** | ADMIN/CLIENT |
-| `PUT` | **`/api/devices/{id}`** | Device | **Updates or assigns a device.** | ADMIN |
-| `DELETE` | **`/api/devices/{id}`** | Device | **Deletes a device** by ID. | ADMIN |
-| `GET` | `/api/devices/person/{personId}` | Device | Lists all devices assigned to a specific person. | Authenticated (Client/Admin) |
+### Infrastructure
+- **Docker & Docker Compose** - Containerizare și orchestrare
+- **Traefik** - Reverse proxy (opțional)
 
-## Test with Postman
-1.  Access your API documentation at: `http://localhost/swagger-ui-person.html`
-2.  **Authentication:** All requests must include an `Authorization` header with the Base64-encoded `username:password`.
-* **Header Value:** `Basic [base64_encoded_user:password]`
-3.  **Initial Setup:** You must manually create the first user with the **ADMIN** role in the `person-db` (using a tool like MySQL Workbench and a BCrypt hash for the password) to gain access to the secure endpoints.
+### Development Tools
+- **Python 3.x** - Pentru simulator de dispozitive
+- **Node.js 20+** - Pentru build frontend (development)
 
-## Where it runs
-The system is accessible via the host machine's Port 80, managed by Traefik.
+## Prerequisite
 
-| Punct de Acces | URL | Service Routed To |
-| :--- | :--- | :--- |
-| **Frontend App** | `http://localhost/` | `frontend` |
-| **Person API Docs** | `http://localhost/swagger-ui-person.html` | `person-backend` |
-| **Device API Docs** | `http://localhost/swagger-ui-device.html` | `device-backend` |
-| **Traefik Dashboard** | `http://localhost:8080/dashboard/` | `reverse-proxy` |
+- **Docker Desktop** instalat și pornit
+- **Porturi disponibile**: 80, 3307, 3309, 3310, 5672, 8080, 8081, 8082, 8083, 15672
+- **Sistem de operare**: Windows/Linux/MacOS cu minim 8GB RAM
+- **(Opțional) Python 3.x** - Pentru rularea simulatorului de dispozitive
+- **(Opțional) Node.js 20+** - Pentru development frontend
+
+
+- `docker-compose.yml` - Orchestrare servicii
+- `demodevice/Dockerfile` - Device backend
+- `demoperson/Dockerfile` - Person backend
+- `demomonitoring/Dockerfile` - Monitoring backend
+- `react-demo/Dockerfile` - Frontend
+- `traefik.yml` - Configurare Traefik
+
+### 3. Build și Start Servicii
+
+# Build toate imaginile și pornire servicii
+docker-compose up --build
+
+# SAU pentru rulare în background
+docker-compose up -d --build
+
+**Așteptați** ~2-3 minute pentru ca toate serviciile să pornească complet.
+
+### 4. Verificare Servicii Pornite
+
+
+Ar trebui să vedeți 9 containere active:
+- `energy-frontend` (port 80)
+- `person-backend` (port 8081)
+- `device-backend` (port 8082)
+- `monitoring-backend` (port 8083)
+- `reverse-proxy` (port 8080)
+- `rabbitmq` (port 5672, 15672)
+- `person-db` (port 3307)
+- `device-db` (port 3309)
+- `monitoring-db` (port 3310)
+
+## Utilizare
+
+### Accesare Aplicație
+
+1. **Frontend Web**: Deschideți browser la `http://localhost`
+
+2. **Login Implicit**:
+   - **Admin**: `anna` / `anna`
+   - **Client**: `anto` / `anto`
+
+3. **Workflow de Bază**:
+   - Login ca admin
+   - Creare utilizatori noi (User Management)
+   - Creare dispozitive (Device Management)
+   - Asociere dispozitive la utilizatori
+   - Vizualizare consumuri (selectați dispozitiv → afișare grafic)
+
+### Accesare Servicii Directe
+
+- **Frontend**: http://localhost
+- **Person API**: http://localhost:8081/api/people
+- **Device API**: http://localhost:8082/api/devices
+- **Monitoring API**: http://localhost:8083/api/energy
+- **RabbitMQ Management**: http://localhost:15672 (user: `anna`, pass: `anna`)
+- **Traefik Dashboard**: http://localhost:8080
+
+### Stop Servicii
+
+```bash
+# Stop și păstrare volume (date persistente)
+docker-compose down
+
+# Stop și ștergere volume (resetare completă)
+docker-compose down -v
+```
+
+## Simulator de Dispozitive
+
+Pentru testare, sistemul include un simulator Python care generează date de consum energetic.
+
+### Prerequisite Simulator
+
+```bash
+pip install pika
+```
+
+### Utilizare Simulator
+
+```bash
+cd simulator
+python run_simulator.py <device-uuid> <interval-seconds>
+
+# Exemplu: Trimite măsurători la fiecare 10 secunde pentru dispozitivul specificat
+python run_simulator.py 82a4c8e1-68d8-404b-b115-c72a6232ae48 10
+```
+
+### Parametri
+- `device-uuid`: ID-ul dispozitivului (din baza de date)
+- `interval-seconds`: Interval între măsurători (recomandat: 10-60 secunde)
+
+### Output Așteptat
+
+```
+Connecting to RabbitMQ...
+Connected successfully
+Starting energy simulation for device: 82a4c8e1-68d8-404b-b115-c72a6232ae48
+Sent measurement: timestamp=2025-12-09 17:30:45, value=0.75 kWh
+Sent measurement: timestamp=2025-12-09 17:31:45, value=0.82 kWh
+...
+```
+
+Datele vor apărea în:
+1. RabbitMQ queue `energy.data.queue`
+2. Monitoring backend (procesare)
+3. Database `energy_measurements`
+4. Frontend chart (după refresh)
+5. WebSocket real-time updates
+

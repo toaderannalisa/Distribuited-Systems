@@ -1,0 +1,72 @@
+ttp:
+  routers:
+    energy-frontend:
+      rule: "PathPrefix(`/`)"
+      entryPoints:
+        - web
+      priority: 1
+      service: frontend
+
+    api-person:
+      rule: "PathPrefix(`/api/auth`) || PathPrefix(`/api/people`)"
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - strip-api
+      service: person-service
+
+    api-device:
+      rule: "PathPrefix(`/api/devices`)"
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - strip-api
+      service: device-service
+
+    api-monitoring:
+      rule: "PathPrefix(`/api/energy`)"
+      entryPoints:
+        - web
+      priority: 100
+      service: monitoring-service
+
+    monitoring-ws:
+      rule: "PathPrefix(`/ws-energy`)"
+      entryPoints:
+        - web
+      priority: 100
+      service: monitoring-ws
+
+  middlewares:
+    strip-api: # Middleware to remove /api prefix
+      stripPrefix:
+        prefixes:
+          - "/api"
+
+  services:
+    frontend: 
+      loadBalancer:
+        servers:
+          - url: "http://energy-frontend:80" # Service name in docker-compose
+
+    person-service:
+      loadBalancer:
+        servers:
+          - url: "http://person-backend:8081"
+
+    device-service:
+      loadBalancer:
+        servers:
+          - url: "http://device-backend:8082"
+
+    monitoring-service:
+      loadBalancer:
+        servers:
+          - url: "http://monitoring-backend:8083"
+
+    monitoring-ws:
+      loadBalancer:
+        servers:
+          - url: "http://monitoring-backend:8083"

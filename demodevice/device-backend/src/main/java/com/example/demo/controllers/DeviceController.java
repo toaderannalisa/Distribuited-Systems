@@ -37,7 +37,7 @@ import com.example.demo.dtos.DeviceDetailsDTO;
 import com.example.demo.services.DeviceService;
 
 @RestController
-@RequestMapping("/devices")
+@RequestMapping("/api/devices")
 @Validated
 @Tag(name = "Device Management", description = "Endpoints for managing devices")
 public class DeviceController {
@@ -76,7 +76,8 @@ public class DeviceController {
 
         DeviceDetailsDTO device = deviceService.findDeviceById(id);
 
-        if (authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_CLIENT"))) {
+        // Check authentication only if it's provided (for backward compatibility)
+        if (authentication != null && authentication.getAuthorities().contains(new SimpleGrantedAuthority("ROLE_CLIENT"))) {
             if (device.getPersonId() == null) {
                 return ResponseEntity.status(403).build();
             }

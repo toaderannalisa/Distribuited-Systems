@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { User, Device } from '../types';
 import { api } from '../services/apiService';
 import {
@@ -14,6 +15,7 @@ import {
     ListItem,
     ListItemText
 } from '@mui/material';
+import { ShowChart as ShowChartIcon } from '@mui/icons-material';
 
 interface ClientDashboardProps {
     user: User;
@@ -21,6 +23,7 @@ interface ClientDashboardProps {
 }
 
 const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => {
+    const navigate = useNavigate();
     const [devices, setDevices] = useState<Device[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -29,7 +32,8 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => 
             try {
                 setLoading(true);
                 const userDevices = await api.getDevicesByPersonId(user.id);
-                setDevices(userDevices);
+                console.log('ClientDashboard - devices:', userDevices, 'IsArray:', Array.isArray(userDevices));
+                setDevices(Array.isArray(userDevices) ? userDevices : []);
             } catch (error) {
                 console.error("Failed to fetch devices:", error);
             }
@@ -70,7 +74,19 @@ const ClientDashboard: React.FC<ClientDashboardProps> = ({ user, onLogout }) => 
                 ) : (
                     <List sx={{ bgcolor: 'background.paper', borderRadius: 2 }}>
                         {devices.map((device) => (
-                            <ListItem key={device.id} divider>
+                            <ListItem 
+                                key={device.id} 
+                                divider
+                                secondaryAction={
+                                    <Button
+                                        variant="contained"
+                                        startIcon={<ShowChartIcon />}
+                                        onClick={() => navigate(`/device/${device.id}/chart`)}
+                                    >
+                                        View Chart
+                                    </Button>
+                                }
+                            >
                                 <ListItemText
                                     primary={device.name}
                                     secondary={`Max Consumption: ${device.maxConsumption} kWh`}

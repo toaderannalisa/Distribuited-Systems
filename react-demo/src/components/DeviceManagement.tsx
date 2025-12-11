@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     Box,
     Button,
@@ -16,12 +17,13 @@ import {
     Alert,
     Chip
 } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, ShowChart as ShowChartIcon } from '@mui/icons-material';
 import { Device, Person, PersonRole } from '../types';
 import { api } from '../services/apiService';
 import DeviceFormDialog from './DeviceFormDialog';
 
 const DeviceManagement: React.FC = () => {
+    const navigate = useNavigate();
     const [devices, setDevices] = useState<Device[]>([]);
     const [clients, setClients] = useState<Person[]>([]);
     const [loading, setLoading] = useState(true);
@@ -39,8 +41,10 @@ const DeviceManagement: React.FC = () => {
                 api.getDevices(),
                 api.getPeople()
             ]);
-            setDevices(devicesData);
-            setClients(peopleData.filter(p => p.role === PersonRole.CLIENT));
+            console.log('DeviceManagement - devices:', devicesData, 'IsArray:', Array.isArray(devicesData));
+            console.log('DeviceManagement - people:', peopleData, 'IsArray:', Array.isArray(peopleData));
+            setDevices(Array.isArray(devicesData) ? devicesData : []);
+            setClients(Array.isArray(peopleData) ? peopleData.filter(p => p.role === PersonRole.CLIENT) : []);
         } catch (err: any) {
             console.error('Failed to fetch data:', err);
             setError(err.response?.data?.message || 'Failed to fetch data');
@@ -133,6 +137,12 @@ const DeviceManagement: React.FC = () => {
                                         )}
                                     </TableCell>
                                     <TableCell align="right">
+                                        <IconButton 
+                                            onClick={() => navigate(`/device/${device.id}/chart`)}
+                                            title="View Chart"
+                                        >
+                                            <ShowChartIcon />
+                                        </IconButton>
                                         <IconButton onClick={() => handleOpenDialog(device)}>
                                             <EditIcon />
                                         </IconButton>

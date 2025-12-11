@@ -22,7 +22,7 @@ public class PersonBuilder {
     }
 
     public static PersonDetailsDTO toPersonDetailsDTO(Person person) {
-        return new PersonDetailsDTO(
+        PersonDetailsDTO dto = new PersonDetailsDTO(
                 person.getId(),
                 person.getName(),
                 person.getUsername(),
@@ -30,6 +30,8 @@ public class PersonBuilder {
                 person.getAge(),
                 person.getRole()
         );
+        dto.setPassword(person.getPassword());
+        return dto;
     }
 
     public static Person toEntity(PersonDetailsDTO personDetailsDTO) {

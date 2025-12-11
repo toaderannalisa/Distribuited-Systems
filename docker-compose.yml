@@ -1,57 +1,31 @@
 
 
 services:
-
-  # TRAEFIK
-
+  # ============================================
+  # TRAEFIK REVERSE PROXY
+  # ============================================
   reverse-proxy:
-
-      image: traefik:v3.2
-      container_name: reverse-proxy
-      command:
-          - "--api.dashboard=true"
-          - "--api.insecure=true"
-          - "--providers.docker=true"
-          - "--providers.docker.exposedbydefault=false"
-          - "--providers.docker.network=proxy-network"
-          - "--entrypoints.web.address=:80"
-          - "--log.level=INFO"
-          - "--accesslog=true"
-      ports:
-        - "80:80"       # HTTP
-        - "8080:8080"   # Traefik Dashboard
-      volumes:
-        - /var/run/docker.sock:/var/run/docker.sock:ro
-      networks:
-        - proxy-network
-      labels:
-        - "traefik.enable=true"
-
-
-
-  # FRONTEND
-
-  frontend:
-    build:
-      context: ./react-demo
-      dockerfile: Dockerfile
-    image: frontend-image
-    container_name: energy-frontend
-    restart: unless-stopped
+    image: traefik:v3.2
+    container_name: reverse-proxy
+    command:
+      - "--api.insecure=true"
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=DEBUG"
+      - "--accesslog=true"
+    ports:
+      - "8080:8080"   # Traefik Dashboard only
+    volumes:
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
     networks:
       - proxy-network
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.frontend.priority=1"
-      - "traefik.http.services.frontend.loadbalancer.server.port=80"
-    depends_on:
-      - person-backend
-      - device-backend
 
-
-  # PERSON MICROSERVICE
-
+  # ============================================
+  # BAZE DE DATE
+  # ============================================
   person-db:
     image: mysql:8.0
     container_name: person-db
@@ -72,6 +46,70 @@ services:
       interval: 5s
       start_period: 30s
 
+  device-db:
+    image: mysql:8.0
+    container_name: device-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: device_db
+    ports:
+      - "3308:3306"
+    volumes:
+      - device-mysql:/var/lib/mysql
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      timeout: 5s
+      retries: 10
+      interval: 5s
+      start_period: 30s
+
+  monitoring-db:
+    image: mysql:8.0
+    container_name: monitoring-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: monitoring_db
+    ports:
+      - "3309:3306"
+    volumes:
+      - monitoring-mysql:/var/lib/mysql
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      timeout: 5s
+      retries: 10
+      interval: 5s
+      start_period: 30s
+
+  # ============================================
+  # RABBITMQ MESSAGE BROKER
+  # ============================================
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: anna
+      RABBITMQ_DEFAULT_PASS: anna
+    networks:
+      - proxy-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # PERSON SERVICE
+  # ============================================
   person-backend:
     build:
       context: ./demoperson
@@ -87,44 +125,21 @@ services:
       - SPRING_DATASOURCE_PASSWORD=root
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SERVER_PORT=8081
-
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=anna
+      - SPRING_RABBITMQ_PASSWORD=anna
     depends_on:
       person-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - proxy-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.person-service.rule=PathPrefix(`/api/auth`) || PathPrefix(`/api/people`) || PathPrefix(`/swagger-ui-person.html`) || PathPrefix(`/swagger-ui`) || PathPrefix(`/v3/api-docs-person`)"
-      - "traefik.http.routers.person-service.service=person-service"
-      - "traefik.http.services.person-service.loadbalancer.server.port=8081"
-      - "traefik.http.routers.person-service.middlewares=strip-api"
-      - "traefik.http.middlewares.strip-api.stripprefix.prefixes=/api"
 
-
-  # DEVICE MICROSERVICE
-
-  device-db:
-    image: mysql:8.0
-    container_name: device-db
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: device_db
-
-    ports:
-      - "3308:3306"
-    volumes:
-      - device-mysql:/var/lib/mysql
-    networks:
-      - proxy-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
-      timeout: 5s
-      retries: 10
-      interval: 5s
-      start_period: 30s
-
+  # ============================================
+  # DEVICE SERVICE
+  # ============================================
   device-backend:
     build:
       context: ./demodevice
@@ -140,29 +155,72 @@ services:
       - SPRING_DATASOURCE_PASSWORD=root
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SERVER_PORT=8082
-
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=anna
+      - RABBITMQ_PASSWORD=anna
     depends_on:
       device-db:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - proxy-network
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.device-service.rule=PathPrefix(`/api/devices`) || PathPrefix(`/swagger-ui-device.html`) || PathPrefix(`/swagger-ui-device`) || PathPrefix(`/v3/api-docs-device`)"
-      - "traefik.http.routers.device-service.service=device-service"
-      - "traefik.http.services.device-service.loadbalancer.server.port=8082"
-      - "traefik.http.routers.device-service.middlewares=strip-api"
 
+  # ============================================
+  # MONITORING SERVICE
+  # ============================================
+  monitoring-backend:
+    build:
+      context: ./demomonitoring
+      dockerfile: Dockerfile
+    image: monitoring-backend-image
+    container_name: monitoring-backend
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://monitoring-db:3306/monitoring_db
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SERVER_PORT=8083
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=anna
+      - SPRING_RABBITMQ_PASSWORD=anna
+    depends_on:
+      monitoring-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - proxy-network
+
+  # ============================================
+  # FRONTEND SERVICE
+  # ============================================
+  frontend:
+    build:
+      context: ./react-demo
+      dockerfile: Dockerfile
+    image: frontend-image
+    container_name: energy-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - proxy-network
+    depends_on:
+      - person-backend
+      - device-backend
+
+networks:
+  proxy-network:
+    driver: bridge
+    name: proxy-network
 
 volumes:
   person-mysql:
   device-mysql:
-
-
-# NETWORK
-
-networks:
-  proxy-network:
-    external: false
-    name: proxy-network
-    driver: bridge
+  monitoring-mysql:

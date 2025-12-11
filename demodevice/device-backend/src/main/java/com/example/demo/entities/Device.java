@@ -15,6 +15,9 @@ public class Device implements Serializable {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "description")
+    private String description;
+
     @Column(name = "max_consumption", nullable = false)
     private Double maxConsumption;
 
@@ -44,6 +47,14 @@ public class Device implements Serializable {
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public Double getMaxConsumption() {

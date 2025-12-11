@@ -32,3 +32,10 @@ export interface Device {
     maxConsumption: number;
     personId: string | null;
 }
+
+// Pe baza răspunsului de la /api/energy/measurements/{deviceId}/hourly
+export interface EnergyConsumption {
+    hour: string;  // Ora în format "HH:00"
+    averageValue: number;  // Media consumului pentru acea oră
+    count: number;  // Numărul de măsurători agregate
+}

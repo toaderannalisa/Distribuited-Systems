@@ -6,14 +6,18 @@ import com.example.demo.dtos.builders.PersonBuilder;
 import com.example.demo.entities.Person;
 import com.example.demo.handlers.exceptions.model.ResourceNotFoundException;
 import com.example.demo.repositories.PersonRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -23,11 +27,14 @@ public class PersonService {
     private static final Logger LOGGER = LoggerFactory.getLogger(PersonService.class);
     private final PersonRepository personRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RabbitTemplate rabbitTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    public PersonService(PersonRepository personRepository, PasswordEncoder passwordEncoder) {
+    public PersonService(PersonRepository personRepository, PasswordEncoder passwordEncoder, RabbitTemplate rabbitTemplate) {
         this.personRepository = personRepository;
         this.passwordEncoder = passwordEncoder;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     public List<PersonDTO> findPersons() {
@@ -63,7 +70,26 @@ public class PersonService {
 
         person = personRepository.save(person);
         LOGGER.debug("Person with id {} was inserted in db", person.getId());
+        
+        // Publish synchronization event to RabbitMQ
+        publishUserSyncEvent(person);
+        
         return person.getId();
+    }
+    
+    private void publishUserSyncEvent(Person person) {
+        try {
+            Map<String, Object> syncMessage = new HashMap<>();
+            syncMessage.put("eventType", "USER_CREATED");
+            syncMessage.put("userId", person.getId().toString());
+            syncMessage.put("username", person.getUsername());
+
+            String message = objectMapper.writeValueAsString(syncMessage);
+            rabbitTemplate.convertAndSend("user.sync.queue", message);
+            LOGGER.info("Published USER_CREATED event for user ID: {}", person.getId());
+        } catch (Exception e) {
+            LOGGER.error("Failed to publish user sync event: {}", e.getMessage(), e);
+        }
     }
 
     @Transactional

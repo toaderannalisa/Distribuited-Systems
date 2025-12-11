@@ -1,0 +1,74 @@
+http:
+  routers:
+    nginx-frontend:
+      rule: "Host(`localhost`) || Host(`127.0.0.1`)" # Match requests to localhost without /api prefix
+      entryPoints:
+        - web # Listen on the web (HTTP) entry point
+      priority: 38
+      service: nginx
+
+    api-person:
+      rule: "(Host(`localhost`) || Host(`127.0.0.1`)) && (PathPrefix(`/api/auth`) || PathPrefix(`/api/people`))" # Match person service paths
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - strip-api
+      service: person-service
+
+    api-device:
+      rule: "(Host(`localhost`) || Host(`127.0.0.1`)) && PathPrefix(`/api/devices`)" # Match device service paths
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - strip-api
+      service: device-service
+
+    api-monitoring:
+      rule: "(Host(`localhost`) || Host(`127.0.0.1`)) && PathPrefix(`/api/monitoring`)" # Match monitoring service paths
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - strip-api
+      service: monitoring-service
+
+    monitoring-ws:
+      rule: "(Host(`localhost`) || Host(`127.0.0.1`)) && PathPrefix(`/ws`)" # WebSocket for monitoring
+      entryPoints:
+        - web
+      priority: 100
+      service: monitoring-ws
+
+  middlewares:
+    strip-api: # Middleware to remove /api prefix
+      stripPrefix:
+        prefixes:
+          - "/api"
+
+  services:
+    nginx: 
+      loadBalancer:
+        servers:
+          - url: "http://frontend:80" # Service name in docker-compose
+
+    person-service:
+      loadBalancer:
+        servers:
+          - url: "http://person-backend:8081"
+
+    device-service:
+      loadBalancer:
+        servers:
+          - url: "http://device-backend:8082"
+
+    monitoring-service:
+      loadBalancer:
+        servers:
+          - url: "http://monitoring-backend:8083"
+
+    monitoring-ws:
+      loadBalancer:
+        servers:
+          - url: "http://monitoring-backend:8083"

@@ -7,6 +7,7 @@ import { User, PersonRole } from './types';
 import LoginPage from './pages/LoginPage';
 import AdminDashboard from './pages/AdminDashboard';
 import ClientDashboard from './pages/ClientDashboard';
+import DeviceChartPage from './pages/DeviceChartPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 
@@ -111,6 +112,13 @@ function App() {
               </ProtectedRoute>
             } />
 
+            <Route path="/device/:deviceId/chart" element={
+              user ? (
+                <DeviceChartPage />
+              ) : (
+                <Navigate to="/login" />
+              )
+            } />
 
             <Route path="*" element={<Navigate to="/" />} />
 
