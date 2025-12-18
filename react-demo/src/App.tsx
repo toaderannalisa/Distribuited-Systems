@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, CircularProgress, Box } from '@mui/material';
@@ -9,6 +8,8 @@ import AdminDashboard from './pages/AdminDashboard';
 import ClientDashboard from './pages/ClientDashboard';
 import DeviceChartPage from './pages/DeviceChartPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import OverconsumptionNotification from './components/OverconsumptionNotification';
+import ChatbotWidget from './components/ChatbotWidget';
 
 
 const theme = createTheme({
@@ -78,6 +79,8 @@ function App() {
   return (
       <ThemeProvider theme={theme}>
         <CssBaseline />
+        <OverconsumptionNotification user={user} />
+        {user && user.role === PersonRole.CLIENT && <ChatbotWidget />}
         <BrowserRouter>
           <Routes>
 

@@ -52,11 +52,11 @@ public class DeviceService {
     public UUID insert(DeviceDetailsDTO deviceDTO) {
         Device device = DeviceBuilder.toEntity(deviceDTO);
         device = deviceRepository.save(device);
-        LOGGER.debug("Device with id {} was inserted in db", device.getId());
-        
+        LOGGER.debug("Device with id {} was inserted in db, maxConsumption={}", device.getId(), device.getMaxConsumption());
+
         // Publish synchronization event to RabbitMQ
         publishDeviceSyncEvent(device);
-        
+
         return device.getId();
     }
     
@@ -67,10 +67,12 @@ public class DeviceService {
             syncMessage.put("deviceId", device.getId().toString());
             syncMessage.put("userId", device.getPersonId() != null ? device.getPersonId().toString() : null);
             syncMessage.put("description", device.getName());
-            
+            syncMessage.put("maxConsumption", device.getMaxConsumption());
+
             String message = objectMapper.writeValueAsString(syncMessage);
+            LOGGER.info("SYNC message for device {}: {}", device.getId(), message);
             rabbitTemplate.convertAndSend("device.sync.queue", message);
-            
+
             LOGGER.info("Published DEVICE_CREATED event for device ID: {}", device.getId());
         } catch (Exception e) {
             LOGGER.error("Failed to publish device sync event: {}", e.getMessage(), e);

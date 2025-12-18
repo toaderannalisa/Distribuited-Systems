@@ -1,4 +1,4 @@
-ttp:
+http:
   routers:
     energy-frontend:
       rule: "PathPrefix(`/`)"
@@ -39,6 +39,20 @@ ttp:
       priority: 100
       service: monitoring-ws
 
+    demonotification-ws:
+      rule: "PathPrefix(`/ws/notifications`)"
+      entryPoints:
+        - web
+      priority: 1000
+      service: demonotification-ws
+
+    chatbot-api:
+      rule: "PathPrefix(`/api/chatbot`)"
+      entryPoints:
+        - web
+      priority: 100
+      service: chatbot-api
+
   middlewares:
     strip-api: # Middleware to remove /api prefix
       stripPrefix:
@@ -70,3 +84,13 @@ ttp:
       loadBalancer:
         servers:
           - url: "http://monitoring-backend:8083"
+
+    demonotification-ws:
+      loadBalancer:
+        servers:
+          - url: "http://demonotification-backend:8090"
+
+    chatbot-api:
+      loadBalancer:
+        servers:
+          - url: "http://chatbot-backend:8091"

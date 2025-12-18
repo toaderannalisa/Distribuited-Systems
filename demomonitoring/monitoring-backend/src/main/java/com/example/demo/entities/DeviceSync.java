@@ -19,4 +19,7 @@ public class DeviceSync {
 
     @Column(name = "user_id", length = 64)
     private String userId;
+
+    @Column(name = "max_consumption")
+    private Double maxConsumption;
 }

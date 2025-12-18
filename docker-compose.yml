@@ -1,5 +1,3 @@
-
-
 services:
   # ============================================
   # TRAEFIK REVERSE PROXY
@@ -15,6 +13,7 @@ services:
       - "--log.level=DEBUG"
       - "--accesslog=true"
     ports:
+      - "80:80"      # Traefik HTTP entrypoint
       - "8080:8080"   # Traefik Dashboard only
     volumes:
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
@@ -208,12 +207,47 @@ services:
     container_name: energy-frontend
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "3000:3000"
     networks:
       - proxy-network
     depends_on:
       - person-backend
       - device-backend
+
+  # ============================================
+  # DEMONOTIFICATION SERVICE (WebSocket)
+  # ============================================
+  demonotification-backend:
+    build:
+      context: ./demonotification
+      dockerfile: Dockerfile
+    image: demonotification-backend-image
+    container_name: demonotification-backend
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      - SERVER_PORT=8090
+    networks:
+      - proxy-network
+
+  # ============================================
+  # CHATBOT SERVICE (Customer Support)
+  # ============================================
+  chatbot-backend:
+    build:
+      context: ./chatbot
+      dockerfile: Dockerfile
+    image: chatbot-backend-image
+    container_name: chatbot-backend
+    restart: unless-stopped
+    ports:
+      - "8091:8091"
+    environment:
+      - SERVER_PORT=8091
+      - GOOGLE_API_KEY=AIzaSyDRCisyJrhFz_ScMwUpolG0RdPZ7NX5_v0
+    networks:
+      - proxy-network
 
 networks:
   proxy-network:

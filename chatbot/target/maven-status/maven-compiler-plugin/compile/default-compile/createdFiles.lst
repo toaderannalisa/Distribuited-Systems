@@ -1,0 +1,4 @@
+com\example\chatbot\ChatbotApplication.class
+com\example\chatbot\RuleBasedChatbotService.class
+com\example\chatbot\AiChatbotService.class
+com\example\chatbot\ChatbotController.class

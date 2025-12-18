@@ -24,7 +24,7 @@ interface DeviceFormDialogProps {
 const DeviceFormDialog: React.FC<DeviceFormDialogProps> = ({ open, onClose, onSave, device }) => {
     const [formData, setFormData] = useState({
         name: '',
-        maxConsumption: 0,
+            maxConsumption: 0 as number,
         personId: '' as string | null,
     });
 
@@ -53,11 +53,10 @@ const DeviceFormDialog: React.FC<DeviceFormDialogProps> = ({ open, onClose, onSa
             if (isEditMode) {
                 setFormData({
                     name: device.name,
-                    maxConsumption: device.maxConsumption,
+                    maxConsumption: typeof device.maxConsumption === 'number' ? device.maxConsumption : Number(device.maxConsumption) || 0,
                     personId: device.personId || '',
                 });
             } else {
-
                 setFormData({
                     name: '',
                     maxConsumption: 0,
@@ -69,15 +68,36 @@ const DeviceFormDialog: React.FC<DeviceFormDialogProps> = ({ open, onClose, onSa
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name as string]: name === 'maxConsumption' ? parseFloat(value as string) : value,
-        }));
+            if (name === 'maxConsumption') {
+                let num = typeof value === 'number' ? value : Number(value);
+                setFormData(prev => ({
+                    ...prev,
+                    maxConsumption: isNaN(num) ? 0 : num,
+                }));
+            } else {
+                setFormData(prev => ({
+                    ...prev,
+                    [name as string]: value,
+                }));
+            }
     };
 
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
+
+        // Validare robustă pentru maxConsumption
+        if (
+            typeof formData.maxConsumption !== 'number' ||
+            isNaN(formData.maxConsumption) ||
+            formData.maxConsumption === null ||
+            formData.maxConsumption === undefined ||
+            formData.maxConsumption <= 0
+        ) {
+            setError('Max Consumption must be a positive number!');
+            setLoading(false);
+            return;
+        }
 
         const payload = {
             ...formData,
@@ -86,10 +106,8 @@ const DeviceFormDialog: React.FC<DeviceFormDialogProps> = ({ open, onClose, onSa
 
         try {
             if (isEditMode) {
-
                 await api.updateDevice(device.id, payload);
             } else {
-
                 await api.createDevice(payload as Omit<Device, 'id'>);
             }
             onSave();
@@ -126,7 +144,9 @@ const DeviceFormDialog: React.FC<DeviceFormDialogProps> = ({ open, onClose, onSa
                     variant="outlined"
                     value={formData.maxConsumption}
                     onChange={handleChange}
-                    InputProps={{ inputProps: { min: 0, step: "0.01" } }}
+                    InputProps={{ inputProps: { min: 0.01, step: "0.01" } }}
+                    error={!!error && error.toLowerCase().includes('max consumption')}
+                    helperText={!!error && error.toLowerCase().includes('max consumption') ? error : ''}
                 />
                 <TextField
                     margin="dense"

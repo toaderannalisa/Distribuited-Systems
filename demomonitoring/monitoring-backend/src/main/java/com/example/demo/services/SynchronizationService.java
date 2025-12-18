@@ -35,10 +35,11 @@ public class SynchronizationService {
             deviceSync.setDeviceId(deviceSyncDTO.getDeviceId());
             deviceSync.setDescription(deviceSyncDTO.getDescription());
             deviceSync.setUserId(deviceSyncDTO.getUserId());
+            deviceSync.setMaxConsumption(deviceSyncDTO.getMaxConsumption());
 
             deviceSyncRepository.save(deviceSync);
-            log.info("Device synchronized: ID={}, Description={}, UserID={}", 
-                    deviceSyncDTO.getDeviceId(), deviceSyncDTO.getDescription(), deviceSyncDTO.getUserId());
+            log.info("Device synchronized: ID={}, Description={}, UserID={}, MaxConsumption={}", 
+                    deviceSyncDTO.getDeviceId(), deviceSyncDTO.getDescription(), deviceSyncDTO.getUserId(), deviceSyncDTO.getMaxConsumption());
         } catch (Exception e) {
             log.error("Error syncing device: {}", e.getMessage(), e);
         }

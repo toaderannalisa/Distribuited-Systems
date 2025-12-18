@@ -10,4 +10,5 @@ public class DeviceSyncDTO {
     private String deviceId;
     private String userId;
     private String description;
+    private Double maxConsumption;
 }

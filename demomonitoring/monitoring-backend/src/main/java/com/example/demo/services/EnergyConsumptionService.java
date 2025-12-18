@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
+import org.springframework.web.client.RestTemplate;
+import com.example.demo.entities.DeviceSync;
 
 @Service
 @Slf4j
@@ -56,6 +58,9 @@ public class EnergyConsumptionService {
 
         // 3. Send real-time update via WebSocket
         sendRealtimeUpdate(measurement.getDeviceId(), measurement.getMeasurementValue(), measurement.getTimestamp());
+
+        // 4. Detect overconsumption and send notification if needed
+        checkAndNotifyOverconsumption(measurement.getDeviceId(), measurement.getMeasurementValue());
     }
 
     private void sendRealtimeUpdate(String deviceId, Double currentValue, LocalDateTime timestamp) {
@@ -162,5 +167,48 @@ public class EnergyConsumptionService {
 
         log.info("Calculated {} hourly averages", result.size());
         return result;
+    }
+
+
+
+    private void checkAndNotifyOverconsumption(String deviceId, Double value) {
+        if (value == null) {
+            return;
+        }
+        Optional<DeviceSync> deviceOpt = deviceSyncRepository.findById(deviceId);
+        if (deviceOpt.isEmpty()) {
+            log.warn("Nu s-a găsit device {} pentru notificare overconsumption.", deviceId);
+            return;
+        }
+        DeviceSync device = deviceOpt.get();
+        Double threshold = device.getMaxConsumption();
+        log.info("Device {} maxConsumption: {}", deviceId, threshold);
+        if (threshold == null) {
+            log.warn("Device {} nu are maxConsumption setat.", deviceId);
+            return;
+        }
+        if (value < threshold) {
+            return;
+        }
+        String personId = device.getUserId();
+        if (personId == null || personId.isEmpty()) {
+            log.warn("Device {} nu are userId asociat pentru notificare.", deviceId);
+            return;
+        }
+
+        // Construiește payloadul pentru notificare
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("deviceId", deviceId);
+        notification.put("message", "Overconsumption detected: " + value + " kWh");
+        notification.put("personId", personId);
+
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            String notificationUrl = "http://demonotification-backend:8090/api/notify";
+            restTemplate.postForEntity(notificationUrl, notification, Void.class);
+            log.info("Trimis notificare overconsumption pentru device {} către user {}.", deviceId, personId);
+        } catch (Exception e) {
+            log.error("Eroare la trimiterea notificării de overconsumption: {}", e.getMessage());
+        }
     }
 }
