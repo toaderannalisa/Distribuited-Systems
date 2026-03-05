@@ -206,8 +206,7 @@ services:
     image: frontend-image
     container_name: energy-frontend
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+   
     networks:
       - proxy-network
     depends_on:

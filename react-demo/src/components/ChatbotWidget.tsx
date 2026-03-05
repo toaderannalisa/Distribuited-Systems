@@ -3,7 +3,7 @@ import { Box, IconButton, TextField, Button, Paper, Typography, Collapse } from 
 import ChatIcon from '@mui/icons-material/Chat';
 import CloseIcon from '@mui/icons-material/Close';
 
-const API_URL = '/api/chatbot/ask'; // Asigura-te ca Nginx proxy-uieste spre microserviciu
+const  API_URL = '/api/chatbot/ask';
 
 const ChatbotWidget: React.FC = () => {
   const [open, setOpen] = useState(false);

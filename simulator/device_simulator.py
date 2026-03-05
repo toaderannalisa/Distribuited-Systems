@@ -76,28 +76,9 @@ class EnergySimulator:
             raise
     
     def generate_measurement(self):
-        """Generate a synthetic energy measurement based on time patterns (increased values for more realistic testing)"""
+       
         import random
-        from datetime import datetime
-        current_hour = datetime.now().hour
-
-        # Increased base load and multipliers for higher values
-        self.base_load = getattr(self, 'base_load', random.uniform(1.5, 3.0))
-        # Night time: lower consumption
-        if current_hour in self.night_hours:
-            multiplier = random.uniform(0.5, 1.0)
-        # Peak hours: higher consumption
-        elif current_hour in self.peak_hours:
-            multiplier = random.uniform(2.0, 3.5)
-        # Regular hours: normal consumption
-        else:
-            multiplier = random.uniform(1.2, 2.0)
-
-        # Add some randomness to simulate natural fluctuations
-        noise = random.uniform(-0.2, 0.2)
-        measurement = max(0.1, self.base_load * multiplier + noise)
-
-        # Round to 2 decimal places
+        measurement = random.uniform(0.9, 2.5)
         return round(measurement, 2)
     
     def send_measurement(self):

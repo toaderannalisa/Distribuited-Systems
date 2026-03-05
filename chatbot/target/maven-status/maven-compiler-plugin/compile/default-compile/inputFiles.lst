@@ -1,4 +1,4 @@
-C:\Users\annal\deployment-sd - Copy\chatbot\src\main\java\com\example\chatbot\AiChatbotService.java
-C:\Users\annal\deployment-sd - Copy\chatbot\src\main\java\com\example\chatbot\RuleBasedChatbotService.java
-C:\Users\annal\deployment-sd - Copy\chatbot\src\main\java\com\example\chatbot\ChatbotController.java
+C:\Users\annal\deployment-sd - Copy\chatbot\src\main\java\com\example\chatbot\controllers\ChatbotController.java
+C:\Users\annal\deployment-sd - Copy\chatbot\src\main\java\com\example\chatbot\services\RuleBasedChatbotService.java
 C:\Users\annal\deployment-sd - Copy\chatbot\src\main\java\com\example\chatbot\ChatbotApplication.java
+C:\Users\annal\deployment-sd - Copy\chatbot\src\main\java\com\example\chatbot\services\AiChatbotService.java
